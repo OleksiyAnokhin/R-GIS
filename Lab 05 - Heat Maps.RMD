@@ -1,0 +1,152 @@
+---
+title: "Lab 05 - Heat Maps"
+author: "Jesse Lecy"
+date: "Wednesday, February 18, 2015"
+output: pdf_document
+---
+
+
+
+This lab introduces heat maps (sometimes known as contour plots) as a way to summarize dense points on a map.
+
+We will use the *stat_density2d* function in the *ggmap* package to add points to our plot. It requires the following arguments that are identical to the *geom_points* function arguments:
+
+Argument | Values
+-------- | -------
+data=    | Name of the data set that contains the latitude and longitude coordinates.
+aes=     | The names of your latitude and longitude variables in the data set.
+size=    | The size of your points with 1 being default, 2 being double that, etc.
+col=     | The color of your points. For options type *colors()*.
+alpha=   | THe level of transparency of your points. Accepts values between 0 (invisible) and 1 (solid).
+
+And three additional arguments:
+
+Argument | Values
+-------- | -------
+bins=    | Controls the granularity of aggregation of your data.
+geom=    | Either *polygon* or *density2d* to set the aesthetic. 
+
+# 311 Service Call Data
+
+For this lab we will be using 311 Service Call data from the NYC Open Data project. We are specifically using all 311 calls from 2009 available here:
+
+https://data.cityofnewyork.us/Social-Services/311-Service-Requests-2009/3rfa-3xsf 
+
+I have downloaded the data set and posted it as a file on BlackBoard called "311 Service Requests for 2009.csv".
+
+```{r}
+# To download from the NYC Open Data site:
+
+# library( RCurl ) package to read data from html files
+#
+# copy the download link by right-clicking on the 'download as csv' link
+#
+# url <- "http://data.cityofnewyork.us/api/views/3rfa-3xsf/rows.csv?accessType=DOWNLOAD"
+#
+# service.calls <- read.csv( file=url, stringsAsFactors=F )
+#
+# dat.taxi <- service.calls[ service.calls$Complaint.Type == "Taxi Complaint" , ]
+
+setwd("C:/Users/jdlecy/Documents")
+
+dat <- read.csv( "311 Service Requests for 2009.csv", stringsAsFactors=F )
+
+dim( dat )  # should have 1,783,133 observations and 52 variables
+
+names( dat )
+
+```
+
+Note that the 311 Service Calls data already comes with a Latitude and Longitude variable, so we do not need to geocode the incidents (which is good since there are over 1.7 million observations and we can only geocode 2,500 a day!). Note that the variable names for lat and lon are different than last week.
+
+For this lab we will be looking at various types of complaints within the city to better understand the geographic distribution of specific issues.
+
+Let's take a look at the common types of complaints in our data.
+
+```{r}
+as.data.frame( sort(table( dat$Complaint.Type ), decreasing=T ))
+```
+
+# Point Map of Taxi Cab Complaints
+
+Let us start by creating a map of all of the taxi complaints in the city. I have already created a subset of the data for taxi complaints and saved it to a separate file in case you would like to follow along.
+
+```{r}
+
+# dat.taxi <- service.calls[ service.calls$Complaint.Type == "Taxi Complaint" , ]
+#
+# write.csv( dat.taxi, "311 Calls for Taxi Complaint.csv", row.names=F )
+
+dat.taxi <- read.csv( "311 Calls for Taxi Complaint.csv", stringsAsFactors=F )
+
+dim( dat.taxi )  # should have 20,909 observations and 52 variables
+
+```
+
+Since we have the latitude and longitude coordinates we can proceed by mappint points in the usual fashion. I find that grabbing a base map that is centered at Queens gives a better view of all boroughs versus one centered at Manhattan.
+
+```{r}
+library( ggmap )
+
+nyc <- ggmap( get_map( "queens, ny", zoom=11, color="bw" ), extent="device" )
+
+nyc + geom_point( data=dat.taxi, aes(x=Longitude, y=Latitude), size=2, col="red", alpha=0.1 )
+
+```
+
+Note that there are warnings produced for missing values. This can mean either that the latitude and longitude data was not available for specific observations (perhaps a complaint was lodged but it did not occure in a specific geography), or else the point is located off of the current base map.
+
+# Points Represented as Density - The Heat Map
+
+The mapping functions worked as expected but we have a problem. With over 20,000 points on the map our data is very dense. It is hard to highlight any specific take-aways other than a lot of people complain about taxis, and mostly in Manhattan. Let's see if we can improve upon this.
+
+```{r}
+nyc2 <- nyc + stat_density2d( data=dat.taxi, aes(x=Longitude, y=Latitude, fill=..level..), 
+                              alpha=0.1, bins=100, geom="polygon" )
+
+nyc2
+```
+
+Now we have something interesting to work with. We can see that the point data has now been summarized by the intensity of points per geographic unit. The colors represent density - the average number of points per unit space over a region. We can see where events are very dense, and where they are sparse.
+
+This is particularly useful when point data is dense - many points are overlaid on top of each other (like the figure above). As a result of the overlay, we cannot discern the concentration of specific points. 
+
+An example of this emerges from the taxi complaints at the airport in the bottom-right quadrant. On the point map the data does not look that significant because it is all concentrated in a small space so it looks like many other points on the map, but once translated into density we can see that the concentration is significant. Similarly, we see that taxi complaints are most intense in Midtown Manhattan, although there are complaints spread across the whole island.
+
+# Layering Data
+
+We can enhance the density plots by adding another layer to combine the original point data with the densities. We want to set the alpha high so that we can see specific concentrations of points, but we still see the underlying density structure clearly. I have also chosed a yellow hue that compliments the black and blue colors in the density map.
+
+
+```{r}
+nyc3 <- nyc2 + geom_point( data=dat.taxi, aes(x=Longitude, y=Latitude), size=1, 
+                           col="goldenrod", alpha=0.05 )
+
+nyc3
+```
+
+Layering data like this helps us pick up on interesting patterns. For example, we can discern the grid structure of the city based upon locations of complaints, and Central Park is also discernable. More data is not always better (we hide some of the density gradiant now), but layering can be a useful visual tool.
+
+This example above demonstrates the use of the "polygon" value in the geom argument. It produces a gradiant where the density plot is represented by smooth transitions between levels. Alternatively, we can use a contour plot representation of the levels using the "density2d" value for the geom argument:
+
+```{r}
+nyc + stat_density2d( data=dat.taxi, aes(x=Longitude, y=Latitude, fill=..level..), 
+                              bins=10, geom="density2d", alpha=0.4, col="blue" )
+
+```
+
+We can also get creative and layer the contour plot on top of the gradiant heat map to highlight regions in the data.
+
+```{r}
+nyc3 <- nyc2 + stat_density2d( data=dat.taxi, aes(x=Longitude, y=Latitude, fill=..level..), 
+                              bins=10, geom="density2d", alpha=0.4, col="goldenrod" )
+
+nyc3
+```
+
+In summary, density plots are very useful for describing the concentration of points on a map. It creates a clear representation of the intensity of events over a geography.
+
+# Looking Ahead
+
+Next week we will begin working with another convention - aggregating data by administrative units. We will use choropleth maps to represent things like levels of household income in each census tract, or crime rates in each neighborhood. This will require us to use shape files, additional map elements for the administrative boundaries within cities.
+
