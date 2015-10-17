@@ -1,0 +1,425 @@
+---
+title: "Lab 03 - R Basics"
+author: "Jesse Lecy"
+date: "Wednesday, February 04, 2015"
+output: pdf_document
+---
+
+
+
+# Variables
+
+Variables are the basic building block of data. When variables are grouped together they are referred to as data sets.
+
+In data analysis we refer to variables as "vectors". The variable is the abstract concept (e.g. price), and the vector is the set of empirical observations in the data set ($108k, $157k, $210k).
+
+
+# Entering Data
+
+You've collected some data, and now you need to enter it into R. The most basic way to group observations into a single variable is the combine operator: c()
+
+You group variables together into a single data set with the data.frame() operator.
+
+```{r}
+x1 <- c(7,9,1,2)
+
+x1
+
+x2 <- c("male","male","female","female")
+
+x2
+
+x3 <- c("treatment","control","treatment","control")
+
+dat <- data.frame( x1, x2, x3, stringsAsFactors=F )
+
+dat
+
+```
+
+************************
+
+
+
+
+# Types of Variables
+
+Recall that R is smart in that if it knows what type of object it is working with, it can guess as to how it should process the data. You ask a variable, "what are you?", with the class() function.
+
+We have five important classes of data that we will work with this semester.
+
+
+Class      | Description
+---------- | -----------
+numeric    | Typical vector of numbers
+character  | A vector of letters or words, always enclosed with quotes
+factor     | Categories which represent groups, like treatment and control
+logical    | A vector of TRUE and FALSE to designate which observations fit a criteria
+data frame | Several vectors grouped into a data set
+NA         | Used to code missing values
+
+
+```{r}
+class( x1 )
+
+class( x2 )
+
+class( dat )
+```
+
+******************
+
+
+
+
+
+
+
+# Missing Values
+
+Missing values are coded differently in each data analysis program. SPSS uses a period, for example. In R, missing values are coded as "NA".
+
+The important thing to note is that R wants to make sure you know there are missing values if you are conducting analysis. As a result, it will give you the answer of "NA" when you try to do math with a vector that includes a missing value. You have to ask it explicitly to ignore the missing value.
+
+```{r}
+x4 <- c(1,2,3,4)
+
+x4
+
+sum( x4 )
+
+mean( x4 )
+
+x4 <- c(1,2,NA,4)
+
+x4
+
+sum( x4 )
+
+mean( x4 )
+
+sum( x4, na.rm=T ) # remove NAs before adding
+
+mean( x4, na.rm=T )
+```
+
+*********************
+
+
+
+
+
+
+# Referencing Variables Inside a Data Set
+
+In R you often have multiple data sets loaded at once. It is possible that two data sets have variables with the same name. As a result, if you are referencing a variable name that is part of a data set you need to use both the name of the data set plus the variable name, separated by the dollar sign.
+
+
+```{r}
+dat$x1
+
+dat$x2
+```
+
+
+
+*********************
+
+
+
+
+
+
+
+
+# Logical Operators
+
+Logical operators are the most basic type of data programming and the core of many types of data analysis. Most of the time we are not conducting fancy statistics, we just want to identify members of a group (print all of the females from the study), or describe things that belong to a subset of the data (compare the average price of houses with garages to houses without garages).
+
+In order to accomplish these simple tasks we need to use logic statements. A logic statement answers the question, does an observation belong to a group.
+
+Many times groups are simple. Show me all of the professions that make over $100k a year, for example.
+
+Sometimes groups are complex. Identify the African American children from a specific zip code in Chicago that live in households with single mothers.
+
+You will use eight basic logical operators:
+
+Operator |  Description
+-------- |  -----------
+<        | less than
+<=       | less than or equal to
+ >      | greater than
+>=       | greater than or equal to
+==	     | exactly equal to
+!=	     | not equal to
+x \| y	 | x OR y
+x & y	   | x AND y
+
+Logical operators create logical vectors, a vector that contains only TRUE or FALSE. The TRUE means that the observation belongs to the group, FALSE means it does not.
+
+```{r}
+
+x1 > 7
+
+x1 >= 7
+
+x1 == 9
+
+# x1 = 9  # don't use a single equals operator!
+
+x1 == 9 | x1 == 1
+
+# x2 == male  # this will not work because male is not enclosed with quotes
+
+x2 == "male"
+
+x2 == "female" & x3 == "treatment"
+
+```
+
+Note that we can sum a logical vector. In this case, R just counts the number of TRUEs. This is very useful for summarizing data quickly. For example, perhaps we want to know how many females we have in our sample.
+
+
+```{r}
+
+sum( x2 == "female" )
+```
+
+***************
+
+
+
+
+
+
+
+
+# Subsets of Data
+
+
+
+```{r}
+
+# Create a logical vector that you will use to select your cases
+
+these.treat <- x3 == "treatment"
+
+these.control <- x3 == "control"
+
+x1
+
+x1[ these.treat ]
+
+x1[ these.control ]
+
+
+
+mean( x1 )
+
+mean( x1[these.treat] )
+
+mean( x1[these.control] )
+
+# When selecting cases with a data frame the comma separates
+# row selection from column selection
+
+# Statements before the comma allow you to select observations
+
+dat[ these.treat , ]
+
+dat[ these.control , ]
+
+# Statements after the comma allow you to select variables
+
+dat[ , c("x1","x2") ]
+
+# To save your subsetted data use a catch
+
+dat.treat <- dat[ these.treat , ]
+
+
+```
+
+
+Most of the time it is easiest to use the 'subset' function instead of the subset operators [].
+
+```{r}
+
+# Use your logical operators to identify your subset using the 'sub' argument
+
+subset( dat, sub=(x2 == "male") )
+
+# If you want to save the subset make sure to use a catch
+
+dat.male <- subset( dat, sub=(x2 == "male") ) 
+
+# If you want to drop some variables, use the select argument
+
+subset( dat, select=c("x1","x2") )
+
+# Putting it all together
+
+subset( dat, sub=(x2 == "male"), select=c("x1","x3") )
+```
+
+*********************
+
+
+
+
+
+# Loading Data
+
+Most often you will not enter data into the console. You will load data sets that have been generated through surveys, transaction data, or other processes. There are several ways to load data into R. Note the "Import Dataset" button near the top right in RStudio.
+
+
+
+
+# Load a Data Set from the Internet
+
+
+```{r}
+
+# install.packages( RCurl )
+
+library(RCurl)
+
+x <- getURL("https://raw.githubusercontent.com/lecy/R-GIS/master/prices.csv", ssl.verifypeer = FALSE)
+
+houses <- read.csv( text = x, stringsAsFactors = F )
+
+names( houses )
+
+```
+
+
+
+
+
+
+
+
+
+# Load a Data Set from a File
+
+This is the most common function for getting data into R, and is preferred over using the import button in RStudio as it prevents another use from seeing what you did in your script.
+
+Before reading your file, you need to point R to the folder where the file is located using the set directory function.
+
+```{r}
+
+# Check your current directory
+
+getwd()  # reports current directory
+
+# Tell R where your file is located
+
+setwd( "C:/Users/jdlecy/Documents" )
+
+# Make sure the file is there
+
+dir()  # displays all files in current directory
+
+houses <- read.csv( "Housing Price.csv", stringsAsFactors = F )
+
+names( houses )
+```
+
+
+
+
+
+
+
+
+# Exploring Data
+
+Here are some common functions for descriptive statistics:
+
+
+```{r}
+names( houses )
+
+dim( houses )
+
+nrow( houses )
+
+length( houses$Price )
+
+head( houses ) # prints first few rows
+
+summary( houses )
+
+table( houses$Garage )
+
+sum( houses$Price )
+
+sum( houses$Price > 200000 )
+
+plot( houses$Square.Feet, houses$Price )
+```
+
+
+
+
+
+
+
+
+
+# Create a New Variable
+
+We will often create a composite variable from other variables. 
+
+We will work more with color vectors later when we make choropleth maps, so don't worry about details just yet. You can see the basics of how we create a color vector here, though.
+
+```{r}
+
+# variable transformation 
+
+school <- houses$Elementary.School.Score + houses$Middle.School.Score + houses$High.School.Score
+
+plot( school, houses$Price )
+
+# create color vector by category 
+
+color.vector <- NULL
+color.vector[ x2 == "male" ] <- "blue"
+color.vector
+color.vector[ x2 == "female" ] <- "pink"
+color.vector
+```
+
+
+
+
+
+
+
+
+# Load Variables from the Census
+
+To give you a sense of where this is going, in future labs you will download some data from the Census.
+
+In order to use the data you will need to create a subset of the downloaded data set using only the census tracts located within your city, and the variables that you will use for the analysis.
+
+```{r}
+
+setwd( "C:/Users/jdlecy/Documents" )
+
+census.dat <- read.csv( file="ACS_13_5YR_DP03_with_ann.csv", stringsAsFactors = F )
+
+# Poverty variable is named "HC03_VC171"
+
+pov.dat <- subset( census.dat, select=c("GEO.id","GEO.id2","GEO.display.label","HC03_VC171" ) )
+
+mean( pov.dat$HC03_VC171 )
+
+```
+
+
+
+
+
+
+
