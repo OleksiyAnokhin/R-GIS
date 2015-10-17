@@ -1,0 +1,284 @@
+---
+title: "Lab 07 - Create Choropleth Map"
+author: "Jesse Lecy"
+date: "Tuesday, March 03, 2015"
+output: pdf_document
+---
+
+
+This lab covers the creation of choropleth maps, maps which use colored or shaded administrative units to summarize data trends.
+
+We will build off of the lab last week by creating a base map, but we will now import census data to look at poverty levels within each tract, and we will color-code high and low-poverty areas.
+
+# Load Your Shapefile and Create your MSA
+
+I will again use Pittsburgh as the example here. Just like last week, I have downloaded the TIGER shapefiles and identified the set of seven counties in the Pittsburgh MSA from the following sites:
+
+https://www.census.gov/geo/maps-data/data/tiger-line.html
+
+ttp://www.bea.gov/regional/docs/msalist.cfm?mlist=45
+
+```{r}
+
+library( maptools )
+
+setwd( "C:/Users/jdlecy/Dropbox/13 - GRADING/GIS" )
+
+penn <- readShapePoly( fn="tl_2010_42_tract10",
+                       proj4string=CRS("+proj=longlat +datum=WGS84") )
+                       
+these <- c("003", "005", "007", "019", "051", "125", "129" )
+
+pitt <- penn[ penn$COUNTYFP10 %in% these, ]
+
+plot( pitt, border="gray" )
+
+```
+
+
+# Grab the Census Tract ID Variable
+
+In order to create choropleth maps we need to merge data from census files with map elements from shapefiles. Any time you are merging two data sources like this you need to match observations using a unique key in each dataset.
+
+Since our unit of analysis is the census tract here, we will use the census tract ID as the unique key. If you were creating a map of states, the state FIPS would be your ID, for counties it is the county FIPS, etc. 
+
+Let's generate the unique ID variable from the shapefiles database. We know that we are looking for the 11-digit code that has the structure SSCCCTTTTTT (S=state, C=county, T=tract).
+
+```{r}
+
+names( pitt )
+
+shp.id <- as.character(pitt$GEOID10)
+
+head( shp.id ) # confirm that it is an 11-digit code
+
+```
+
+We know from the downloads that the Pennsylvania state FIPS is 42, so as an additional check we can confirm that all of the Pittsburgh ID's begin with 42. It looks like we are in business.
+
+# Load the Census Data Containing Poverty Measures
+
+After you have downloaded the appropriate files from the American Factfinder site (the census data repository), you need to load and clean the data.
+
+Most downloads will include "annotations" in your data set, which simply means the first line of data contains a description of the variable. It can be helpful if you need help identifying the correct variable for your analysis (see this trick below to print the variable names and descriptions).
+
+```{r}
+
+setwd( "C:/Users/jdlecy/Dropbox/13 - GRADING/GIS" )
+
+census.dat <- read.csv( "ACS_10_5YR_S1701_with_ann.csv", colClasses="character" )
+
+dim( census.dat ) # 279 variables!
+
+head( census.dat[ , 1:5 ] )
+
+# Print a list of variable names and descriptions
+
+t( census.dat[ 1, 1:20 ] ) # only printing the first twenty variables here for your amusement
+
+```
+
+Let's remove the row of annotations because it will cause problems in the analysis. Just use a -1 in the subset operator to drop the first line of data.
+
+```{r}
+# note, second row is annotations - need to remove from data with -1 in the row argument
+
+head( census.dat[ , 1:5 ] )
+
+census.dat <- census.dat[ -1 , ] # get rid of annotations
+
+head( census.dat[ , 1:5 ] )
+
+```
+
+Let's grab the poverty variable. I want a measure of a poverty rate for the whole population within each census tract, so I will grab:
+
+HC03_EST_VC01: "Percent below poverty level; Estimate; Population for whom poverty status is determined"
+
+
+```{r}
+
+poverty <- as.numeric( census.dat$HC03_EST_VC01 )
+
+summary( poverty )
+
+```
+
+
+Now we need to create another geographic ID variable so that we can match this data to our shapefile elements.
+
+This one is a little more complicated because the census data does not come with a nicely-formatted 11-digit code for census tracts. But it is not hard to generate by extracting the code from the longer version that comes standard in this data set.
+
+The substring() function allows you to extract specific letter or numbers from a full string of letters and numbers.
+
+```{r}
+
+# full geo id variable in the default census data format
+
+head( census.dat$GEO.id )
+
+# extract 11-digit census tract id
+
+substr( "politics", 5, 8) # here is how substr() works
+
+geo.id <- substr( as.character(census.dat$GEO.id), 
+                  start=10, stop=20 ) 
+
+head( geo.id )
+
+
+```
+
+Voila - a geographic ID that matches the convention of the shapefiles.
+
+
+
+# Create Color Values for your Map
+
+The entire lab next week will be devoted to creating reasonable color schemes for maps, so I am going to gloss over the important details for now. 
+
+The basic idea, though, is that you define colors for each group in your data (I am using a simple three-group scheme here). You will use the cut function to decide which bucket each observations belongs in, then color-coding the observation accordingly.
+
+I want to create a simple map that highlights high-poverty areas and low-poverty areas. I will define high poverty as above the 75th percentile, and low as below the 25th percentile of all tracts. In looking at the summary statistics from the poverty variable I can see that high is above 17.6
+
+The groups are defined as follows:
+
+Group  |  Cut Points | Color
+-------|-------------|-------
+Low Poverty |  0 < group < 5 | Blue
+Medium Poverty | 5 < group < 17 | Gray
+High Poverty | 17 < group < 100 | Red
+
+This is operationalized with the set of cutpoints c(-1,5,17,100) where -1 is used to be inclusive of zero (similar to <= ).
+
+```{r}
+
+col.vals <- c("dodgerblue4","gray70","firebrick")
+
+plot( 1:3, 1:3, cex=10, pch=19, col=col.vals )
+
+col.vector <- as.character(cut( poverty, breaks=c(-1,5,17,101), 
+                                labels=col.vals ) )
+
+head( col.vector ) # one color for each census tract
+
+cbind(poverty,col.vector)[1:20,]
+
+```
+
+
+
+
+# Sort Your Data by Shapefile ID
+
+The observations (rows) of two data sets will not automatically match. If we want to combine data we need to use a merge() or a match() operations first.
+
+Here we will use the two geo IDs to match the colors to the correct census tract on the map file.
+
+The match function sorts the second variable according to the first. It will return the correct order of the data, which we will use to sort the color data. 
+
+
+```{r}
+
+# Example of how match() and order work
+
+x <- sample( letters[1:5], 5, replace=F )
+
+y <- sample( letters[1:5], 5, replace=F )
+
+cbind( x, y ) 
+
+match( x, y )
+
+ord <- match( x, y )
+
+cbind( x, y[ord] )
+
+```
+
+OK, let's reorder our colors so that they match the correct census tracts.
+
+```{r}
+
+order <- match( shp.id, geo.id  )
+
+geo.id <- geo.id[ order ]
+
+poverty <- poverty[ order ]
+
+col.vector <- col.vector[ order ]
+
+cbind( shp.id, geo.id, poverty, col.vector )[1:20,]
+
+```
+
+
+
+
+# Plot Your Cholopleth Map
+
+Once you have generated and sorted your color vector, plotting is the easy part. Just add a color argument to the previous plot command.
+
+```{r}
+
+plot( pitt, col=col.vector, border="gray" )
+
+# Zoom into the downtown
+
+# I already grabbed the coordinates using:  locator(2)
+
+
+plot( pitt, border="gray", col=col.vector, 
+      xlim=c(-80.05868, -79.86374), ylim=c(40.38154, 40.51135) )
+
+```
+
+
+
+
+
+# Providing Context
+
+It can be difficult to orientate one's self to a city using only census tracts, so we might want to give some context. We can do this either by providing a base map with similar coordinates, or else we can add some landmarks like roads and water bodies.
+
+```{r}
+
+# Grab a map tile with the same geographic coordinates as the zoom
+
+library( ggmap )
+
+ggmap( get_map( location=c(-80.05868, 40.51135, -79.86374, 40.38154), col="bw", zoom=12 ), extent="device" )
+
+plot( pitt, border="gray", col=col.vector, 
+      xlim=c(-80.05868, -79.86374), ylim=c(40.51135, 40.38154) )
+
+```
+
+
+We add landmarks by downloading river or road files from the TIGER shapefile repository. They are added to the choropleth map by using the add=T argument in the plot function.
+
+
+```{r}
+
+setwd( "C:/Users/jdlecy/Dropbox/13 - GRADING/GIS" )
+
+rivers <- readShapePoly( fn="tl_2010_42003_areawater",
+                       proj4string=CRS("+proj=longlat +datum=WGS84") )
+
+roads <- readShapeLines( fn="tl_2010_42_prisecroads", 
+                        proj4string=CRS("+proj=longlat +datum=WGS84") )
+                       
+
+plot( pitt, border="gray", col=col.vector, 
+      xlim=c(-80.05868, -79.86374), ylim=c(40.38154, 40.51135) )
+
+plot( rivers, add=T, col="light blue" )
+
+plot( roads, add=T, col="white", lwd=1 )
+
+
+```
+
+
+
+
