@@ -1,0 +1,222 @@
+---
+title: "Lab 08 - Visual Narrative"
+author: "Jesse Lecy"
+date: "Tuesday, March 17, 2015"
+output: pdf_document
+---
+
+It is extremely important to use GIS tools ethically to not mislead those that read your maps. The most common problems you will encounter are:
+
+1. Forgetting to normalize data
+2. Choosing a poor color scale
+3. Using break points that don't match the underlying data
+
+
+There are a few rules to follow when generating your visual narrative.
+
+# Normalizing Data
+
+This is the easiest rule to follow. If you are presenting counts of things, geographic units with the largest area or base population will contain the most of whatever you are counting.
+
+For example, there may be lots of crimes in NYC, but relatively few crimes per capita. 
+
+As a result, remember to report data after normalizing it to some standard unit like per capita, per square mile, or percentage of.
+
+# Choosing a Meaningful Color Scale
+
+Select a color scheme or scale that best communicates the nature of your data.
+
+## If you have a binary class use a simple color scheme
+
+For example, if your goal is to highlight poor census tracts you could create a gradiant of income, but that makes your data more complicated. Instead, create two classes - in poverty and out of poverty. Use two colors.
+
+## Use a sequential color scale for data with a high-low nature
+
+If your data has the quality where more is always better (or always worse) then use a sequential color scale to capture that quality. For example, for income more is better. Use a gradiant with a light color like white or gray representing the low levels on the gradiant and a dark color representing high levels on the gradiant.
+
+## Use a divergent color scale for data that is relative to the mean
+
+If the important groups within your data are the average individuals, above-average individuals, and below-average individuals, then you will want to use a divergent scale. Instead of a single color gradiant, you now have a neutral color in the middle of the gradiant and two distinct color gradiants on either side.
+
+For example, IQ follows a normal distribution with the average IQ at 100 and a standard deviation of 15. You might define categories of individuals as average being an IQ between 85 and 115, then below-average is less than 85, above average is more than 115. Both classes are relative to the average cases in the data.
+
+The underlying distribution of divergent scales are often normal.
+
+## Use the Color Brewer site to select color schemes
+
+The easiest way to generate the color codes you need for your color gradiant will be using the elegant web tool developed by Cynthia Brewer.
+
+http://colorbrewer2.org/
+
+Use the HEX codes for the colors.
+
+```{r}
+
+color.vals <- c("#a6611a", "#dfc27d", "#f5f5f5", "#80cdc1", "#018571" )
+
+plot( 1:5, c(5,5,5,5,5), col=color.vals, pch=19, cex=10, xlim=c(0,6) )
+
+```
+
+There is also an R package to generate the same color palletes.
+
+```{r}
+
+# install.packages( "RColorBrewer" )
+
+library( RColorBrewer )
+
+# The name BrBG is located from the website
+
+display.brewer.pal( 7, "BrBG" ) 
+
+display.brewer.pal( 5, "BrBG" ) 
+
+display.brewer.pal( 7, "BuGn" ) 
+
+
+brewer.pal( 5, "BrBG" ) # identical to above
+
+color.vals <- brewer.pal( 5, "BrBG" )
+
+```
+
+Alternatively, you can generate your own custom color palettes using the *colorRampPalette* function.
+
+```{r}
+
+color.function <- colorRampPalette( c("firebrick4","light gray","steel blue" ) )
+
+color.function(5) # number of classes you desire
+
+col.vals <- color.function(7)
+
+plot( 1:7, c(3,3,3,3,3,3,3), pch=19, cex=10, col=col.vals, xlim=c(0,8) )
+
+```
+
+
+
+
+
+
+# Creating Meaningful Break Points
+
+This rule is a little more tricky because you need to know something about your underlying data. Generally speaking you will have either normal data or skewed data (other cases are possible, but these are the two most common).
+
+```{r}
+
+# 10,000 draws from a random normal distribution
+
+norm.vec <- rnorm(10000) + 10
+
+hist( norm.vec, breaks=100, col="steel blue", 
+      main="Normal Distribution", xlab="" )
+
+quantile( norm.vec )
+
+# 10,00 draws from an exponential distribution
+
+exp.vec <- rexp(10000)
+
+hist( exp.vec, breaks=100, col="steel blue", 
+      main="Exponential Distribution", xlab="" )
+
+quantile( exp.vec )
+
+```
+
+In these two cases we will want to use different conventions to create break points (see the power point slides for examples).
+
+In general, quantiles are meaningful. Use the *quantile()* function to identify the break points. The arguments for the function are the variable name, and the data value that corresponds to the percentile that you specify.
+
+```{r}
+
+norm.vec <- rnorm(10000) + 10
+
+quantile( norm.vec, probs=c(0, 0.20, 0.40, 0.60, 0.80, 1 ), na.rm=T  )
+
+quantile( norm.vec, probs=c(0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1), na.rm=T  )
+
+# Note the function default creates four groups
+
+quantile( norm.vec )
+
+# Easy way to define the number of groups
+
+quantile( norm.vec, na.rm=T, probs=seq( from=0, to=1, by=1/7 ) )
+
+
+```
+
+If quantiles do not make sense for your application, you can identify the breaks by inspecting the data and determining another interval system that is meaningful.
+
+# Applying the Rules
+
+Once you have generated your color scale and identified your break points, you proceed to make your choropleth map.
+
+```{r}
+
+library( maptools )
+
+setwd( "C:/Users/jdlecy/Dropbox/13 - GRADING/GIS" )
+
+penn <- readShapePoly( fn="tl_2010_42_tract10",
+                       proj4string=CRS("+proj=longlat +datum=WGS84") )
+                       
+these <- c("003", "005", "007", "019", "051", "125", "129" )
+
+pitt <- penn[ penn$COUNTYFP10 %in% these, ]
+
+shp.id <- as.character(pitt$GEOID10)
+
+census.dat <- read.csv( "ACS_10_5YR_S1701_with_ann.csv", colClasses="character" )
+
+census.dat <- census.dat[ -1 , ] # get rid of annotations
+
+poverty <- as.numeric( census.dat$HC03_EST_VC01 )
+
+geo.id <- substr( as.character(census.dat$GEO.id), 
+                  start=10, stop=20 ) 
+
+color.vals <- brewer.pal( 5, "BrBG" )
+
+quantile( poverty, probs=c(0, 0.20, 0.40, 0.60, 0.80, 1 ), na.rm=T )
+
+col.vector <- as.character(cut( poverty, breaks=c(-1, 4.28, 7.76, 11.84, 20.90, 95.70), 
+                                labels=color.vals ) )
+
+order <- match( shp.id, geo.id  )
+
+geo.id <- geo.id[ order ]
+
+poverty <- poverty[ order ]
+
+col.vector <- col.vector[ order ]
+
+plot( pitt, border="gray", col=col.vector, 
+      xlim=c(-80.05868, -79.86374), ylim=c(40.38154, 40.51135) )
+
+
+# Try a different color scheme
+
+color.function <- colorRampPalette( c( "steel blue","light gray","firebrick4") )
+
+color.vals <- color.function(5)
+
+col.vector <- as.character(cut( poverty, breaks=c(-1, 4.28, 7.76, 11.84, 20.90, 95.70), 
+                                labels=color.vals ) )
+
+order <- match( shp.id, geo.id  )
+
+geo.id <- geo.id[ order ]
+
+poverty <- poverty[ order ]
+
+col.vector <- col.vector[ order ]
+
+plot( pitt, border="gray", col=col.vector, 
+      xlim=c(-80.05868, -79.86374), ylim=c(40.38154, 40.51135) )
+
+```
+
