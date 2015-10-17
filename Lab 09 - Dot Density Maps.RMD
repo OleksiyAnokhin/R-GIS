@@ -1,0 +1,152 @@
+---
+title: "Lab 09 - Dot Density Maps"
+author: "Jesse Lecy"
+date: "Tuesday, March 24, 2015"
+output: pdf_document
+---
+
+
+This week's lab represents a convergence of the lab on using choropleth maps to represent data, and the lab using density estimates to show distributions of points on a map.
+
+The brain processes visual information in specific ways. One of the big limitations of choropleth maps is that large census tracts are by definition not dense, and very dense tracts are very small. As a result, a choropleth map can distort information by over-emphasizing the least important regions.
+
+To compensate, we can use "point density" or "dot density" maps as an alternative to choropleth maps. Each dot represents an individual or household that belongs to a specific group, and by plotting them together the underlying patterns emerge. If there is a large number of dots then kernel density estimators can be used to highlight patterns.
+
+Previously we had geocoded address data to create a set of points, but in this lab we will use observations within census tracts. To create a poverty map, for example, we might include a point for each poor household. Because we don't know the exact location of a poor household in a census tract, we need to add a point randomly in the tract. We will do this using the *dotsInPolys()* function in the maptools package. If there are 10 poor households in a specific census tract, we would randomly distribute 10 points across the tract in order to generate the map.
+
+
+```{r}
+
+
+
+library( maptools )
+
+setwd( "C:/Users/jdlecy/Dropbox/13 - GRADING/GIS" )
+
+
+# load the pittsburgh shapefile
+
+pitt <- readShapePoly( fn="pittshapefile",
+                       proj4string=CRS("+proj=longlat +datum=WGS84") )
+
+
+shp.id <- as.character(pitt$GEOID10)
+
+
+
+# load census data
+
+census.dat <- read.csv( "ACS_10_5YR_S1701_with_ann.csv", colClasses="character" )
+
+census.dat <- census.dat[ -1 , ] # get rid of annotations
+
+geo.id <- census.dat$GEO.id2
+
+
+```
+
+Note that we previously used the poverty rate (percentage of households that are poor in each tract) to create choropleth maps.
+
+We now want to use the total number of poor households since we will add a point for each household.
+
+To make sure the map doesn't get too cluttered, we might only add one dot per ten households, or one dot per 100 households, depending upon our data.
+
+
+
+```{r}
+
+# C02_EST_VC01: total households below the poverty line
+
+poverty.count <- as.numeric( census.dat$HC02_EST_VC01 )
+
+
+
+# match and reorder the poverty data to the shapefile order
+
+order <- match( shp.id, geo.id  )
+
+poverty.count <- poverty.count[ order ]
+
+```
+
+The *dotsInPolys()* function requires thee arguments, the shapefile that you wish to sample from, a vector of sample sizes for each region of the shapefile, and the type of sample (either a random draw from the polygon or points that are equally-spaced across the polygon). 
+
+Note that the return class for the function is a points shapefile, which is not very useful to us. We need the set of latitude and longitude points only to create heatmaps in ggmap. It is easy enough to change - just cast the shapefile object as a data frame.
+
+
+
+```{r} 
+
+# one point represents 10 households
+
+pov.dots <- dotsInPolys( pitt, poverty.count/10, f="random" )
+
+
+pov.dots <- as.data.frame( pov.dots )
+
+head( pov.dots )
+
+dim( pov.dots )
+
+```
+
+We are ready to go. Similar to a previous lab, we will use the ggmap package to plot points. We need to grab a map tile. We will then layer point and heatmap elements on top to highlight the location patterns of poverty in Pittsburgh.
+
+
+```{r} 
+  
+library(ggmap)
+
+
+pittsburgh <- get_map("pittsburgh", zoom = 12, maptype="roadmap", color="bw" )
+
+pittmap <- ggmap(pittsburgh, extent="device")
+
+# point map
+
+h1 <- pittmap + geom_point(data=pov.dots, aes(x=x,y=y), size = 0.5, alpha=0.5, col="dark blue" )
+
+h1
+
+
+# heatmap
+
+h2 <- pittmap + stat_density2d(data=pov.dots,aes(x=x,y=y, fill = ..level..),
+                               bins=500, geom="polygon", alpha=0.01 )
+
+h2
+
+# putting the two together
+
+h3 <- h2 + geom_point(data=pov.dots, aes(x=x,y=y), size = 0.5, alpha=0.5, col="goldenrod" )
+
+h3
+
+```
+
+Note that you may need to fine-tune your map using the bin size, alpha levels, and point sizes. These parameters will depend entirely on the density of your data. Try to pick values that best highlight the underlying pattern. This is determined by trial and error.
+
+
+```{r}
+
+pittmap <- ggmap(pittsburgh, extent="device")
+
+h2 <- pittmap + stat_density2d(data=pov.dots,aes(x=x,y=y, fill = ..level..),
+                               bins=100, geom="polygon", alpha=0.01 )
+
+h3 <- h2 + geom_point(data=pov.dots, aes(x=x,y=y), size = 0.5, alpha=0.5, col="goldenrod" )
+
+h3
+
+
+pittmap <- ggmap(pittsburgh, extent="device")
+
+h2 <- pittmap + stat_density2d(data=pov.dots,aes(x=x,y=y, fill = ..level..),
+                               bins=1000, geom="polygon", alpha=0.01 )
+
+h3 <- h2 + geom_point(data=pov.dots, aes(x=x,y=y), size = 0.5, alpha=0.5, col="goldenrod" )
+
+h3
+
+```
+
