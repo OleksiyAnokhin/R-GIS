@@ -1,0 +1,311 @@
+---
+title: "Lab 02 - Load a Base Map"
+author: "Jesse Lecy"
+date: "Tuesday, January 27, 2015"
+output: pdf_document
+---
+
+
+In this lab you will learn how to load a base map file. To complete the task you will need to use the correct arguments for the load map function in order to select a map from a specific archive, set the correct scale (zoom) for the map, and select the appropriate aesthetic.
+
+You will be working with a package called 'ggmap', a companion program to the popular 'ggplot' program developed by Hadley Wickam (he is the same guy that developed R Studio and a variety of other useful tools for R).
+
+# Install and load ggmap
+
+If you have not installed 'ggmap' already, you can do that using the command. Note, you only need to do this once.
+
+```
+install.packages( "ggmap" )
+```
+For each session load the package so that it can be used:
+
+```{r}
+library( ggmap )
+```
+
+The functions we will use today are 'get_map' and the function 'ggmap' (which is a little confusing because it is both the function and the package name, but follow along below and it will be clear).
+
+Let's see how it will work.
+
+```{r}
+map <- get_map( location="syracuse ny" )
+ggmap( map )
+```
+
+Excellent, with two lines of code we have created a map of our city. This is an extremely powerful function as it utilizes APIs from four major map archives, and automatically syncs the map images to a lattitude and longitude x-y axis. This will be important when we start to geocode data (covert addresses into lat-long coordinates to place points on maps).
+
+The basemaps that you are generating here are simple image tiles. They are not GIS maps, which consist of a special format called shapefiles. Base maps provide a geographic context, but you cannot edit elments on the image directly.
+
+# Arguments of get_map
+
+Let's take a look at the core arguments of the function. If you look at the documentation you will see that there are 11 separate arguments necessary to execute the function. Fortunately, all have reasonable defaults so the function is pretty user friendly. 
+
+
+
+```
+
+get_map( 
+         location = c(lon = -95.3632715, lat = 29.7632836),
+         source = c("google", "osm", "stamen", "cloudmade")         
+         zoom = "auto", 
+         maptype = c("terrain", "satellite", "roadmap", "hybrid", "toner", "watercolor"), 
+         color = c("color", "bw")
+       )
+```
+
+
+
+Lets look at common usage of the arguments.
+
+# Setting the location
+
+The get_map function is clever in that it understands two formats of the location argument. You can either state a common name of a specific location. Or you can use a precise latitude and longitude coordinate.
+
+When you use the name of your location, such as "Syracuse ny", the function links to a google maps API and searches for your term. Note that you need to be careful since your search may not yield the expected result. For example, look at what happens when I search for the Maxwell School.
+
+```{r}
+map <- get_map( location="maxwell school" )
+ggmap( map )
+```
+
+Hmmm.... that is odd. That is not a map of Syracuse NY. What's going on? Well, if you search google maps you will see that Maxwell Elementary School in Greensburg, PA is one of the first results. 
+
+You might try being a little more specific:
+
+```{r}
+map <- get_map( location="maxwell school of citizenship" )
+ggmap( map )
+```
+
+That looks better.
+
+Let's try the other format for the 'location' argument. If I look up Syracuse University in a GIS database I can determine that the latitude and longitude coordinates are: lat = 43.038161, lon = -76.135584. Let's try an explicit call to the map function:
+
+```{r}
+map <- get_map( location=c(lon = -76.135584, lat = 43.038161) )
+ggmap( map )
+```
+
+We can see that it works as expected.
+
+
+
+
+
+
+
+# Selecting a map source
+
+We have several different map sources to chose from:
+
+[Google Maps](https://developers.google.com/maps/)
+
+[Open Streem Maps](http://en.wikipedia.org/wiki/OpenStreetMap)
+
+[CloudMadeMaps](http://en.wikipedia.org/wiki/CloudMade)
+
+[Stamen Maps](http://stamen.com/clients/cloudmade)
+
+Unfortunately, CloudMade and Stamen have recently become proprietary map sources, so you need a subscription in order to access their maps. We limit our map-making to the Google and Open Street Map archives.
+
+You change the map archive using the 'source' argument:
+
+
+```{r}
+map <- get_map( location="syracuse university", source="osm" )
+
+ggmap( map )
+```
+
+We can see that the style of map has changed from the familiar default google maps tile.
+
+Note, you may get the following error when using OSM maps:
+
+> cannot open: HTTP status was '503 Service Unavailable'
+
+This means that too many people are trying to access maps via the OSM servers (or they are down for another reason) and you need to try your request later. The API for OSM can be hit and miss.
+
+
+
+
+# Map scale - the 'zoom' argument
+
+
+The 'zoom' argument sets the scale of the map. From the documentation of the get_map function we see that:
+
+> map zoom, an integer from 3 (continent) to 21 (building), default value 10 (city). openstreetmaps limits a zoom of 18.
+
+Let's look at how we might create a map of Syracuse University.
+
+
+
+```{r}
+map <- get_map( location="syracuse university",
+                source="google",
+                zoom=21 )
+ggmap( map )
+```
+
+Well, that's not very informative. Let's zoom out a little bit.
+
+```{r}
+map <- get_map( location="syracuse university",
+                source="google",
+                zoom=18 )
+ggmap( map )
+```
+
+That's better. What about in Open Street Map format?
+
+```{r}
+map <- get_map( location="syracuse university",
+                source="osm",
+                zoom=18 )
+ggmap( map )
+```
+
+
+
+
+
+# Changing the style of the map with the 'maptype' argument
+
+We might think about changing the style of the base map to offer different context for the analysis. If we are presenting an urban planning topic the street grid is likely important. If we are presenting environmental analysis the satellite image of the terrain might be preferable. We have several styles to chose from:
+
+> maptype = c("terrain", "satellite", "roadmap", "hybrid", "toner", "watercolor")
+
+Note within the documentation that certain styles can only be used with certain base map sources. Google provides four types of maps (terrain, satellite, roadmap and hybrid), whereas Stamen Maps provides three (terrain, watercolor, toner). OSM has only one template.
+
+> character string providing map theme. options available are 'terrain', 'satellite', 'roadmap', and 'hybrid' (google maps), 'terrain', 'watercolor', and 'toner' (stamen maps), or a positive integer for cloudmade maps (see ?get_cloudmademap)
+
+```{r}
+
+ggmap( get_map( location="baltimore", source="google", maptype="terrain", zoom=13 ) )
+
+ggmap( get_map( location="baltimore", source="google", maptype="satellite", zoom=13 ) )
+
+ggmap( get_map( location="baltimore", source="google", maptype="hybrid", zoom=13 ) )
+
+
+```
+
+
+
+# Creating black and white maps
+
+
+```{r}
+
+ggmap( get_map( location="baltimore", source="google", maptype="terrain", zoom=13, color="bw" ) )
+
+ggmap( get_map( location="baltimore", source="google", maptype="satellite", zoom=13, color="bw" ) )
+
+ggmap( get_map( location="baltimore", source="google", maptype="hybrid", zoom=13, color="bw" ) )
+
+
+```
+
+
+
+****** 
+
+# Aside 1
+
+Note that sometimes you place quotes around the arguments, and sometimes you do not. How do you know when to use quotes?
+
+For example:
+
+```
+map <- get_map( location="boston" )
+ggmap( map )
+
+```
+Why is "boston" enclosed with quote marks and _map_ is not?
+
+Both of these are arguments used by functions, but they are different kinds of arguments. In general the arguments enclosed in quotation marks are calling a specific parameter. For example, the get_map function allows you to select from several map types, such as terrain or hybrid. When you enlcose the argument in quotes you are selecting a specific option.
+
+If something is not enclosed by quotation marks then it is an object that was created from previous functions. Take the example above. You first call the get_map function (the throw), and you save the results as 'map' (the catch). That object now contains all of the relevant information about your map of boston. To plot it, you pass that information along to the next function, ggmap.
+
+Numbers are also not enclosed by quotations. For example:
+
+```
+map <- get_map( location="boston", zoom=15 )
+
+```
+That is because numbers are technically numeric vectors with one element, so they are objects as well.
+
+The important thing to note is that functions have two kinds of inputs - simple argument parameters (text enclosed with quotation marks), and objects (data sets, vectors, or other things created from other functions).
+
+
+
+*****
+
+# Aside 2 - What does it mean to be object oriented?
+
+R is designed to make data analysis fast, which it accomplished in part by making it easy to use the results from one step of the analysis easy to use in the next step. Recall the metaphor of a function being a recipe where you first mix the ingredients into batter, then you use the batter in the next step, cooking.
+
+For an example of this, consider the regression function in R:
+
+```{r}
+
+#  Create model where:  y = 200 + 2x + e
+
+x <- 1:1000
+y <- 200 + 2*x + 100*rnorm(1000)
+
+plot( x, y )
+
+# We know the 'truth' here, let's see what the regression tells us
+
+m.01 <- lm( y ~ x )
+
+summary( m.01 )
+
+```
+
+You can see that we stored all of the regression results in the object m.01. If we now want to use those results for further analysis, such as sensitivity analysis to ensure proper model fit, we can simply use the m.01 object. Try typing:
+
+> plot( m.01 )
+
+You get a set of diagnostic tools to help you understand model fit.
+
+*****
+
+# A preview of Lab 04:
+
+```{r}
+
+
+syracuse <- get_map(  #--------------------------------start
+
+                      location='syracuse university', 
+                      zoom = 16, 
+                      color="bw"
+                      
+                    ) #---------------------------------end
+
+
+
+syr.map <- ggmap( #---------------------------------start
+
+                  syracuse, 
+                  extent = "device"                  
+                  
+                ) #---------------------------------end
+
+
+maxwell <- geocode('the maxwell school of citizenship')
+
+
+syr.map + geom_point( #---------------------------------start
+
+                      data=maxwell, 
+                      aes(x=lon, y=lat), 
+                      size=25, 
+                      col="orange", 
+                      alpha=0.4 
+                      
+                    ) #---------------------------------end
+
+```
+
