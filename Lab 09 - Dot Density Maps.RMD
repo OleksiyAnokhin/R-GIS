@@ -10,7 +10,9 @@ This week's lab represents a convergence of the lab on using choropleth maps to 
 
 The brain processes visual information in specific ways. One of the big limitations of choropleth maps is that large census tracts are by definition not dense, and very dense tracts are very small. As a result, a choropleth map can distort information by over-emphasizing the least important regions.
 
-To compensate, we can use "point density" or "dot density" maps as an alternative to choropleth maps. Each dot represents an individual or household that belongs to a specific group, and by plotting them together the underlying patterns emerge. If there is a large number of dots then kernel density estimators can be used to highlight patterns.
+To compensate, we can use "point density" or "dot density" maps as an alternative to choropleth maps. Each dot represents an individual or household that belongs to a specific group, and by plotting them together the underlying patterns emerge. If there is a large number of dots then kernel density estimators can be used to highlight patterns. For an impressive example see:
+
+http://demographics.coopercenter.org/DotMap/
 
 Previously we had geocoded address data to create a set of points, but in this lab we will use observations within census tracts. To create a poverty map, for example, we might include a point for each poor household. Because we don't know the exact location of a poor household in a census tract, we need to add a point randomly in the tract. We will do this using the *dotsInPolys()* function in the maptools package. If there are 10 poor households in a specific census tract, we would randomly distribute 10 points across the tract in order to generate the map.
 
