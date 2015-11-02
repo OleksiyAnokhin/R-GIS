@@ -24,7 +24,8 @@ setwd( "./shapefiles" )
 # for information on available shapefiles:
 #
 # https://www.census.gov/geo/maps-data/data/tiger-line.html
-
+#
+# copy appropriate links from the FTP site for your desired shapefiles
 
 
 download.file("ftp://ftp2.census.gov/geo/tiger/TIGER2010/TRACT/2010/tl_2010_36067_tract10.zip", "onondaga census tracts.zip" )
