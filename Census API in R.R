@@ -159,7 +159,7 @@ poverty <- poverty$DP03_0119PE
 
 income <- hh.income$B19001_001E
 
-census.dat <- cbind( income, poverty, prop.black  )
+census.dat <- cbind( hh.income, poverty, prop.black  )
 
 
 head( census.dat )
