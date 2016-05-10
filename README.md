@@ -11,3 +11,5 @@ These labs were created as part of an Urban Policy class for the Master of Publi
 * Create choropleth maps using census data
 
 The course website is available here:  http://www.lecy.info/urban-policy
+
+For some more advanced GIS functions check out: https://rpubs.com/ajlyons/rspatialdata
